@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude-code config:*)",
+      "Bash(mkdir:*)",
+      "Bash(git:*)",
+      "Bash(uv:*)",
+      "Edit",
+      "Write",
+      "Bash(claude-code config:show:*)",
+      "Bash(claude mcp add --help:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(systemctl --user status:*)",
+      "Bash(systemctl:*)",
+      "Bash(journalctl:*)",
+      "Bash(chmod:*)",
+      "Bash(yay -Q:*)",
+      "Bash(yay -Ss:*)",
+      "Bash(yay -Si:*)",
+      "Bash(curl:*)",
+      "Bash(pacman:*)",
+      "Read(//etc/**)",
+      "Bash(claude config:show:*)",
+      "Bash(jj --version:*)",
+      "Bash(hyprctl monitors:*)",
+      "Bash(cat:*)",
+      "Bash(xrandr:*)",
+      "Bash(dmesg:*)",
+      "Bash(nwg-displays:*)",
+      "Bash(sudo userdel:*)",
+      "Bash(sudo -v)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

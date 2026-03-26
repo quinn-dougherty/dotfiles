@@ -1,0 +1,5 @@
+# Per-machine data is set in ~/.config/chezmoi/chezmoi.toml [data] section.
+# These are defaults.
+
+[omarchy]
+enabled = true

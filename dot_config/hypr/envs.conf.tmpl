@@ -1,0 +1,9 @@
+# Extra env variables
+# env = MY_GLOBAL_ENV,setting
+
+{{ if .omarchy.enabled -}}
+# Add Omarchy bin directory to PATH for walker and other Omarchy scripts
+env = PATH,$HOME/.local/share/omarchy/bin:$HOME/.local/bin:$HOME/.emacs.d/bin:/usr/local/bin:/usr/bin
+{{ else -}}
+env = PATH,$HOME/.local/bin:$HOME/.emacs.d/bin:/usr/local/bin:/usr/bin
+{{ end -}}

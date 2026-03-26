@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(git:*)",
+      "Bash(jj:*)",
+      "Bash(gh:*)",
+      "Bash(uv:*)",
+      "Bash(rg:*)",
+      "Bash(cd:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Edit",
+      "Write",
+      "WebSearch",
+      "WebFetch",
+      "Read",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/q/.local/bin/claude-notify"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true
+  },
+  "sandbox": {
+    "autoAllowBashIfSandboxed": true
+  },
+  "skipDangerousModePermissionPrompt": true
+}

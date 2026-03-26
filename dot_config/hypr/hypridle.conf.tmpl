@@ -1,0 +1,29 @@
+general {
+{{ if .omarchy.enabled }}    lock_cmd = omarchy-lock-screen                         # lock screen and 1password
+{{ else }}    lock_cmd = hyprlock                                    # lock screen
+{{ end }}    before_sleep_cmd = loginctl lock-session               # lock before suspend.
+    after_sleep_cmd = hyprctl dispatch dpms on             # to avoid having to press a key twice to turn on the display.
+    inhibit_sleep = 3                                      # wait until screen is locked
+}
+
+listener {
+    timeout = 150                                             # 2.5min
+{{ if .omarchy.enabled }}    on-timeout = pidof hyprlock || omarchy-launch-screensaver # start screensaver (if we haven't locked already)
+{{ else }}    on-timeout = pidof hyprlock || hyprlock                   # lock if not locked already
+{{ end }}}
+
+listener {
+    timeout = 151                      # 5min
+    on-timeout = loginctl lock-session # lock screen when timeout has passed
+}
+
+listener {
+    timeout = 330                                            # 5.5min
+    on-timeout = hyprctl dispatch dpms off                   # screen off when timeout has passed
+    on-resume = hyprctl dispatch dpms on && brightnessctl -r # screen on when activity is detected
+}
+
+# listener {
+#     timeout = 60                                            # 1min after lock
+#     on-timeout = pidof hyprlock && systemctl suspend        # only suspend if lockscreen is active
+# }

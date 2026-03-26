@@ -1,0 +1,91 @@
+# Application bindings
+$terminal = uwsm-app -- xdg-terminal-exec
+{{ if .omarchy.enabled -}}
+$browser = omarchy-launch-browser
+{{ else -}}
+$browser = xdg-open https:
+{{ end -}}
+
+{{ if .omarchy.enabled -}}
+bindd = SUPER, RETURN, Terminal, exec, $terminal --dir="$(omarchy-cmd-terminal-cwd)"
+{{ else -}}
+bindd = SUPER, RETURN, Terminal, exec, $terminal
+{{ end -}}
+bindd = SUPER SHIFT, F, File manager, exec, uwsm-app -- nautilus --new-window
+bindd = SUPER SHIFT, B, Browser, exec, $browser
+bindd = SUPER SHIFT ALT, B, Browser (private), exec, $browser --private
+{{ if .omarchy.enabled -}}
+bindd = SUPER SHIFT ALT, M, Music, exec, omarchy-launch-or-focus spotify
+bindd = SUPER SHIFT, M, Messages (Beeper), exec, omarchy-launch-or-focus beeper
+bindd = SUPER SHIFT, N, Editor, exec, omarchy-launch-editor
+bindd = SUPER SHIFT, T, Activity, exec, omarchy-launch-tui btop
+bindd = SUPER SHIFT, D, Docker, exec, omarchy-launch-tui lazydocker
+bindd = SUPER SHIFT, G, Signal, exec, omarchy-launch-or-focus signal "uwsm-app -- signal-desktop"
+bindd = SUPER SHIFT, O, Obsidian, exec, omarchy-launch-or-focus "^obsidian$" "uwsm-app -- obsidian -disable-gpu --enable-wayland-ime"
+bindd = SUPER SHIFT, I, Inkscape, exec, omarchy-launch-or-focus inkscape "uwsm-app -- inkscape"
+{{ else -}}
+bindd = SUPER SHIFT ALT, M, Music, exec, uwsm-app -- spotify
+bindd = SUPER SHIFT, M, Messages (Beeper), exec, uwsm-app -- beeper
+bindd = SUPER SHIFT, N, Editor, exec, $terminal -e $EDITOR
+bindd = SUPER SHIFT, T, Activity, exec, $terminal -e btop
+bindd = SUPER SHIFT, D, Docker, exec, $terminal -e lazydocker
+bindd = SUPER SHIFT, G, Signal, exec, uwsm-app -- signal-desktop
+bindd = SUPER SHIFT, O, Obsidian, exec, uwsm-app -- obsidian -disable-gpu --enable-wayland-ime
+bindd = SUPER SHIFT, I, Inkscape, exec, uwsm-app -- inkscape
+{{ end -}}
+bindd = SUPER SHIFT, SLASH, Passwords, exec, uwsm-app -- bitwarden-desktop
+
+# Web apps
+{{ if .omarchy.enabled -}}
+bindd = SUPER SHIFT, A, Gemini, exec, omarchy-launch-webapp "https://gemini.google.com/u/2/app"
+bindd = SUPER SHIFT ALT, A, Claude, exec, omarchy-launch-webapp "https://claude.ai"
+bindd = SUPER SHIFT, C, Calendar, exec, omarchy-launch-webapp "https://calendar.google.com"
+bindd = SUPER SHIFT, E, Email, exec, omarchy-launch-webapp "https://mail.google.com"
+bindd = SUPER SHIFT, Y, YouTube, exec, omarchy-launch-webapp "https://youtube.com/"
+bindd = SUPER SHIFT, X, X, exec, omarchy-launch-webapp "https://x.com/"
+bindd = SUPER SHIFT ALT, X, X Post, exec, omarchy-launch-webapp "https://x.com/compose/post"
+{{ else -}}
+bindd = SUPER SHIFT, A, Gemini, exec, xdg-open "https://gemini.google.com/u/2/app"
+bindd = SUPER SHIFT ALT, A, Claude, exec, xdg-open "https://claude.ai"
+bindd = SUPER SHIFT, C, Calendar, exec, xdg-open "https://calendar.google.com"
+bindd = SUPER SHIFT, E, Email, exec, xdg-open "https://mail.google.com"
+bindd = SUPER SHIFT, Y, YouTube, exec, xdg-open "https://youtube.com/"
+bindd = SUPER SHIFT, X, X, exec, xdg-open "https://x.com/"
+bindd = SUPER SHIFT ALT, X, X Post, exec, xdg-open "https://x.com/compose/post"
+{{ end -}}
+
+{{ if .omarchy.enabled -}}
+# Overwrite existing bindings - swap SUPER SPACE and SUPER ALT SPACE
+unbind = SUPER, SPACE
+unbind = SUPER ALT, SPACE
+bindd = SUPER, SPACE, Omarchy menu, exec, omarchy-menu
+bindd = SUPER ALT, SPACE, Launch apps, exec, omarchy-launch-walker
+{{ else -}}
+bindd = SUPER, SPACE, Launch apps, exec, walker
+{{ end -}}
+
+# Move current workspace to the next monitor on the right
+bindd = $mainMod SHIFT, RIGHT, "Move workspace → next monitor", movecurrentworkspacetomonitor, +1
+# Move current workspace to the previous monitor on the left
+bindd = $mainMod SHIFT, LEFT, "Move workspace → previous monitor", movecurrentworkspacetomonitor, -1
+
+{{ if .omarchy.enabled -}}
+# Override Omarchy default - change close window from SUPER W to SUPER X
+unbind = SUPER, W
+{{ end -}}
+bindd = SUPER, C, Close window, killactive,
+
+# Restart waybar
+{{ if .omarchy.enabled -}}
+bindd = SUPER ALT, W, Restart waybar, exec, omarchy-restart-waybar
+{{ else -}}
+bindd = SUPER ALT, W, Restart waybar, exec, killall waybar; waybar &
+{{ end -}}
+
+{{ if .omarchy.enabled -}}
+# Idle toggle
+bindd = SUPER ALT, Z, Toggle idle lock, exec, omarchy-toggle-idle
+{{ end -}}
+
+# Notification controls
+bindd = SUPER ALT, N, Click top notification, exec, makoctl dismiss
