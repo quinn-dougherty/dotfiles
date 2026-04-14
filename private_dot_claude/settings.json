@@ -36,7 +36,18 @@
   },
   "enabledPlugins": {
     "pyright-lsp@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true
+    "clangd-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "vercel-plugin@vercel-vercel-plugin": true,
+    "vercel@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "vercel-vercel-plugin": {
+      "source": {
+        "source": "directory",
+        "path": "/home/q/.cache/plugins/github.com-vercel-vercel-plugin"
+      }
+    }
   },
   "sandbox": {
     "autoAllowBashIfSandboxed": true

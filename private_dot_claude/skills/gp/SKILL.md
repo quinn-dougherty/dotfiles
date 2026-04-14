@@ -1,6 +1,10 @@
 Open a draft PR if one doesn't exist, or push to the existing PR's branch if one is already open.
 
 Instructions:
+0. If the argument is `main` or `master`:
+   - Simply run `git push` to push the current branch directly to that remote branch
+   - Do NOT create a PR or new branch
+   - Show the pushed commits and exit
 1. Check if a PR already exists for the current branch using `gh pr list --head <branch-name>`
 2. If a PR exists:
    - Push the current branch to remote with `git push`
