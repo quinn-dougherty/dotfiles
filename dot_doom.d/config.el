@@ -324,21 +324,40 @@
               ("<right>" . 'copilot-accept-completion)
               ("C-<right>" . 'copilot-accept-completion-by-word)))
 
-(defun qd/claude-code-ide ()
-  "Open Claude Code IDE in a vterm buffer with --dangerously-skip-permissions.
-Uses a per-project buffer so different projects get separate sessions."
+(defun qd/claude--next-index (project-name)
+  "Return the lowest unused index for claude buffers in PROJECT-NAME."
+  (let ((idx 0))
+    (while (get-buffer (format "*claude<%s>[%d]*" project-name idx))
+      (setq idx (1+ idx)))
+    idx))
+
+(defun qd/claude ()
+  "Open a new indexed Claude Code vterm session for the current project.
+Each invocation opens a fresh session: *claude<project>[0]*, *claude<project>[1]*, etc."
   (interactive)
   (let* ((project-name (or (and (project-current)
                                 (file-name-nondirectory
                                  (directory-file-name
                                   (project-root (project-current)))))
                             "global"))
-         (buf-name (format "*claude-code-ide<%s>*" project-name)))
-    (if-let ((buf (get-buffer buf-name)))
-        (switch-to-buffer buf)
-      (vterm buf-name)
-      (vterm-send-string "claude --dangerously-skip-permissions\n"))))
-(map! :leader :desc "Claude Code IDE" "o c" #'qd/claude-code-ide)
+         (idx (qd/claude--next-index project-name))
+         (buf-name (format "*claude<%s>[%d]*" project-name idx)))
+    (vterm buf-name)
+    (vterm-send-string "claude --dangerously-skip-permissions\n")))
+(defun qd/claude-switch ()
+  "Switch to an existing Claude Code buffer via completing-read."
+  (interactive)
+  (let ((bufs (cl-remove-if-not
+               (lambda (b) (string-match-p "^\\*claude<.*>\\[[0-9]+\\]\\*$" (buffer-name b)))
+               (buffer-list))))
+    (if (null bufs)
+        (message "No claude buffers open. Use SPC o c to start one.")
+      (switch-to-buffer
+       (completing-read "Claude session: " (mapcar #'buffer-name bufs) nil t)))))
+
+(map! :leader
+      :desc "Claude" "o c" #'qd/claude
+      :desc "Claude switch" "o C" #'qd/claude-switch)
 
 (add-to-list 'company-backends 'company-nixos-options 'company-coq)
 (use-package! lsp-tailwindcss)

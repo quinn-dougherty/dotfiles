@@ -145,8 +145,6 @@
 (package! editorconfig)
 (package! copilot
   :recipe (:host github :repo "copilot-emacs/copilot.el" :files ("*.el" "dist")))
-(package! claude-code-ide
-  :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
 ;; (package! kanban)
 (package! rand-theme)
 (package! nixos-options)
@@ -162,6 +160,8 @@
 ;;            :repo "sonofhypnos/fatebook.el"))
 
 (package! flycheck-lilypond)
+
+(package! bazel :recipe (:host github :repo "bazel-contrib/bazel.el"))
 
 ;; Majjit - Magit for Jujutsu (local development)
 ;; Using straight's local development recipe
