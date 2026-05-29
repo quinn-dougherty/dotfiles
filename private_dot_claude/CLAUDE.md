@@ -26,3 +26,9 @@ runs `agy -p` and returns a summary, keeping this context clean.
   full `agy` round-trip costs more than just doing it.
 - When you delegate, hand the subagent a fully self-contained task (paths,
   acceptance criteria, constraints) — `agy` starts with zero context.
+- **Parallelize aggressively.** When you have several independent low-level
+  tasks, dispatch all the `antigravity` subagents in a *single* message so
+  their `agy` procs run concurrently instead of one-at-a-time. Only batch
+  tasks that touch **disjoint** files; serialize anything that would edit the
+  same files (or hand each conflicting task its own `git worktree`), since
+  parallel `agy` procs share the working directory and will race otherwise.
