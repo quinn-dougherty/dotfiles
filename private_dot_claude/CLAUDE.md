@@ -10,3 +10,19 @@ Incrementally adopting jj (jujutsu) v0.34.0 - check for `.jj/` vs `.git/` direct
   - Use `jj squash -m "message"` instead of `jj squash`
   - Use `jj split --interactive` with stdin redirection or avoid split if it requires editor
   - For any command that would open an editor, use the `-m` flag to provide the message inline
+
+# Delegating low-level work to Antigravity (`agy`)
+
+Operating model: **you orchestrate, Antigravity executes.** `agy` is a headless
+coding agent (Gemini 3) on PATH. For concrete, self-contained implementation
+work, delegate to the `antigravity` subagent rather than doing it inline — it
+runs `agy -p` and returns a summary, keeping this context clean.
+
+- **Delegate**: scaffolding, boilerplate, mechanical/repetitive edits across
+  files, writing tests, running builds/test suites and iterating to green,
+  format/lint fixups — work that is well-specified enough to hand off.
+- **Keep for yourself**: planning and decomposition, deciding *what* to build,
+  reviewing and integrating `agy`'s output, and trivial one-line edits where a
+  full `agy` round-trip costs more than just doing it.
+- When you delegate, hand the subagent a fully self-contained task (paths,
+  acceptance criteria, constraints) — `agy` starts with zero context.
