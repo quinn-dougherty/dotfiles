@@ -435,6 +435,10 @@ Each invocation opens a fresh session: *claude<project>[0]*, *claude<project>[1]
 (map! :leader
       :desc "Claude" "o c" #'qd/claude
       :desc "Claude switch" "o C" #'qd/claude-switch)
+
+(after! vterm
+  (map! :map vterm-mode-map
+        :desc "Send ESC to terminal" "C-c <escape>" #'vterm-send-escape))
 #+END_SRC
 * completion and lsp
 #+BEGIN_SRC elisp
