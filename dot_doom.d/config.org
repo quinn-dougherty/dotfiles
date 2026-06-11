@@ -72,7 +72,6 @@ numbers are disabled. For relative line numbers, set this to `relative'.
 
 * Shell things
 #+BEGIN_SRC elisp
-(setq shell-file-name (executable-find "nu")) ;; doom doctor said this.
 
 (setq vterm-eval-cmds '(("find-file" find-file)
                         ("message" message)
