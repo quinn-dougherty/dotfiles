@@ -1,0 +1,102 @@
+# If not running interactively, don't do anything (leave this at the top of this file)
+[[ $- != *i* ]] && return
+
+# All the default Omarchy aliases and functions
+# (don't mess with these directly, just overwrite them here!)
+source ~/.local/share/omarchy/default/bash/rc
+
+# Add your own exports, aliases, and functions here.
+#
+# Make an alias for invoking commands you use constantly
+# alias p='python'
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/q/.local/bin:$PATH"
+
+# --- migrated from nushell ---
+
+# Nix profile
+export PATH="/nix/var/nix/profiles/default/bin:$PATH"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:/nix/var/nix/profiles/default/share"
+if [[ -z $NIX_SSL_CERT_FILE && -f /etc/ssl/certs/ca-certificates.crt ]]; then
+  export NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+fi
+
+# ssh-agent: start once, reuse env across shells
+if [[ -z $SSH_AUTH_SOCK ]]; then
+  if [[ -f ~/.cache/ssh-agent.env ]]; then
+    source ~/.cache/ssh-agent.env >/dev/null
+  fi
+  if ! kill -0 "${SSH_AGENT_PID:-0}" 2>/dev/null; then
+    ssh-agent -s > ~/.cache/ssh-agent.env
+    source ~/.cache/ssh-agent.env >/dev/null
+  fi
+fi
+
+alias l='ls -al'
+alias c='/home/q/.local/bin/claude --dangerously-skip-permissions'  # overrides omarchy c=opencode
+alias g='/usr/bin/gemini'                                           # overrides omarchy g=git
+alias ur='uv run'
+alias gsd='npx get-shit-done-cc'
+
+# jj bookmark set + push
+jp() {
+  local bookmark="${1:-master}"
+  jj bookmark set "$bookmark" && jj git push --bookmark "$bookmark"
+}
+
+# format, lint, typecheck, test — in parallel by default
+# trinity [-s|--sequential] [--ci]
+trinity() {
+  local sequential=0 ci=0 arg
+  for arg in "$@"; do
+    case "$arg" in
+      -s|--sequential) sequential=1 ;;
+      --ci) ci=1 ;;
+    esac
+  done
+  local cmds=(
+    'uv run ruff format'
+    'uv run ruff check --fix'
+    'uv run ty check'
+    'uv run pytest'
+  )
+  local failed=0 code cmd
+  if (( sequential )); then
+    for cmd in "${cmds[@]}"; do
+      echo "▶ $cmd"
+      bash -lc "$cmd"
+      code=$?
+      (( code != 0 )) && failed=1
+    done
+  else
+    local tmp i=0
+    tmp=$(mktemp -d)
+    for cmd in "${cmds[@]}"; do
+      ( bash -lc "$cmd" > "$tmp/$i.out" 2>&1; echo $? > "$tmp/$i.code" ) &
+      i=$((i + 1))
+    done
+    wait
+    i=0
+    for cmd in "${cmds[@]}"; do
+      code=$(< "$tmp/$i.code")
+      echo "▶ $cmd (exit $code)"
+      cat "$tmp/$i.out"
+      (( code != 0 )) && failed=1
+      i=$((i + 1))
+    done
+    rm -rf "$tmp"
+  fi
+  if (( failed )); then
+    echo "❌ one or more steps failed."
+    (( ci )) && return 1
+    return 0
+  fi
+  echo "✅ all steps passed."
+}
+
+# Riddle of Strider
+if [[ -f ~/.config/bash/lines.txt ]]; then
+  shuf -n1 ~/.config/bash/lines.txt
+fi
