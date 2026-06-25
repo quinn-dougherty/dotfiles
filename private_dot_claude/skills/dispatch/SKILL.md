@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: Execute a high-level task by reading the relevant GitHub issues with `gh`, building their dependency DAG, and running the work as parallel-as-possible worktree-isolated subagents — each at a model+effort tier matched to its difficulty — that implement, test, and file a PR. Delegates mechanical work to the antigravity (agy) executor. Invoke as `/dispatch <task>`.
+description: Execute a high-level task by reading the relevant GitHub issues with `gh`, building their dependency DAG, and running the work as parallel-as-possible worktree-isolated subagents — each at the model and effort the task actually warrants (two independent axes) — that implement, test, and file a PR. Delegates mechanical work to the antigravity (agy) executor. Invoke as `/dispatch <task>`.
 ---
 
 # /dispatch
@@ -49,19 +49,40 @@ Then:
 - **Independent tasks** (no path between them, disjoint files) → run **concurrently**.
 - Don't gate on artificial "waves": the engine starts each task the instant *its own* deps resolve, so keep edges minimal and real.
 
-## Phase 3 — Triage model + effort per task
+## Phase 3 — Triage: model and effort are two axes, not one
 
-Match cost to difficulty. Default low; escalate only on evidence.
+Ask **two independent questions**. Don't collapse them onto a single "harder ⇒ bigger-and-more" diagonal — that's the trap, and it's exactly why you'd otherwise never reach for `sonnet`+high or `opus`+low. Default both low; escalate each only on evidence.
 
-| Difficulty | Signals | executor | model | effort |
-|---|---|---|---|---|
-| **Trivial / mechanical** | typo, config/dep bump, rename, codemod, pure boilerplate, doc edit, single obvious file, crisp acceptance criteria | `antigravity` (agy) | `haiku` | `low` |
-| **Moderate** | localized feature or bugfix, a few files, needs tests, light design judgement | `claude` | `sonnet` | `medium` |
-| **Hard / architectural** | cross-cutting, ambiguous, new subsystem, tricky concurrency/perf/security, non-obvious tradeoffs | `claude` | `opus` | `high` (`max` for the gnarliest) |
+**Axis 1 — capability ⇒ model.** How much *knowledge, taste, ambiguity-resolution, and design judgement* does the task demand? This sets the model's **ceiling**.
 
-- **Prefer the antigravity executor whenever the task is well-specified enough to hand off** — scaffolding, repetitive edits across files, test writing, build/lint fixups. That honors the "orchestrate, agy executes" operating model and keeps the expensive tiers free for real difficulty.
-- A `claude` task can still delegate its *typing* to `agy -p "…"` mid-flight for bulk mechanical chunks, then review/test/PR itself. The engine's brief already nudges antigravity-executor tasks to do this.
-- Reserve `opus`/`max` for issues that genuinely need it — don't spray it across the DAG.
+- routine, well-trodden, one clear right answer → `haiku`
+- real but bounded judgement in familiar territory → `sonnet`
+- novel, ambiguous, cross-cutting, or high-stakes (security, public API, architecture) → `opus`
+
+**Axis 2 — reasoning depth ⇒ effort.** How long is the logical chain — edge cases to enumerate, invariants to hold, self-checking needed before the output is trustworthy? This sets how much the model *thinks*.
+
+- obvious, ~one-shot change → `low`
+- a few moving parts, tests to get right → `medium`
+- many edge cases / subtle correctness / prove-it-out → `high`
+- adversarial, must-not-be-wrong deep reasoning → `max`
+
+They're orthogonal because *being smart* and *thinking long* are different levers — so the **off-diagonals are real**:
+
+| combo | when | example |
+|---|---|---|
+| **`sonnet` + high** | hard **but bounded** — gnarly logic in a familiar domain; effort, not capability, is the limiter (best value for hard-but-narrow) | fiddly off-by-one across a state machine; a tricky self-contained bug with many edge cases; a careful test matrix |
+| **`opus` + low** | high **stakes/taste**, shallow reasoning — must be *right*, isn't a puzzle | a security-sensitive one-liner; a public API signature; the shape/naming of a new module |
+| **`haiku` + medium** | mechanical but **fiddly**, where a wrong edit is costly | a large conditional codemod; a multi-file rename with exceptions |
+| **`opus` + high/max** | genuinely hard **and** deep — reserve it, don't spray it | new subsystem with subtle concurrency/correctness |
+
+**Heuristic — raise effort before model size.** Effort scales thinking tokens on a *fixed* model; bumping model size scales the cost of *every* token. For hard-but-in-domain work, try `sonnet`+high before `opus`+medium. Only jump to a bigger model when the smaller one's **ceiling** is the wall, not its thinking budget. The tell:
+
+- failure mode is *"missed an edge case / logic slip"* → **effort-limited** → raise effort.
+- failure mode is *"misunderstood the problem / wrong abstraction / bad design"* → **ceiling-limited** → raise model. (More thinking on an under-powered model just produces confidently-wrong output faster.)
+
+Because `/dispatch` fans out in parallel, spend `high`/`max` freely on the *few* genuinely hard tasks while the *many* easy ones stay `haiku`/`low` — **budget the tail, not the bulk.**
+
+**Executor is a third, separate choice.** `antigravity` (agy, Gemini 3) vs `claude` is not a capability rung — it's a *delegation* call. Hand well-specified, self-contained work to agy to preserve Claude budget/context for orchestration and the hard tail; a clean agy hand-off can exist at any difficulty. A `claude` task can also delegate its *typing* to `agy -p "…"` mid-flight for bulk mechanical chunks, then review/test/PR itself (the engine's brief already nudges antigravity-executor tasks to do this). Reach for `claude` when the work needs tight integration with your own reasoning or is too ambiguous to fully spec up front.
 
 ## Phase 4 — Confirm, then dispatch
 
@@ -85,8 +106,9 @@ Workflow({
         executor:"claude", model:"sonnet", effort:"medium", branch:"dispatch/14-config-loader", deps:[] },
       { id:"B", issue:15, title:"bump deps + codemod", brief:"…",
         executor:"antigravity", model:"haiku", effort:"low", branch:"dispatch/15-dep-bump", deps:[] },
+      // bounded but fiddly integration — capability is fine at sonnet, but it needs to think → off-diagonal sonnet+high
       { id:"C", issue:20, title:"wire loader into server", brief:"…",
-        executor:"claude", model:"opus", effort:"high", branch:"dispatch/20-wire-server", deps:["A"] }
+        executor:"claude", model:"sonnet", effort:"high", branch:"dispatch/20-wire-server", deps:["A"] }
     ]
   }
 })

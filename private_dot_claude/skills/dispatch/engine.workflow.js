@@ -31,11 +31,22 @@ export const meta = {
 
 phase('Dispatch')
 
-const tasks = (args && args.tasks) || []
+// The harness may deliver `args` as a JSON string rather than a parsed object
+// (large inline tool-call payloads in particular). Coerce defensively.
+let A = args
+if (typeof A === 'string') {
+  try {
+    A = JSON.parse(A)
+  } catch (e) {
+    return { error: 'args was a string but not valid JSON: ' + e.message }
+  }
+}
+
+const tasks = (A && A.tasks) || []
 if (!tasks.length) return { error: 'args.tasks is empty — nothing to dispatch' }
 
-const baseBranch = (args && args.baseBranch) || 'master'
-const draft = !(args && args.draft === false)
+const baseBranch = (A && A.baseBranch) || 'master'
+const draft = !(A && A.draft === false)
 const byId = {}
 for (const t of tasks) byId[t.id] = t
 
