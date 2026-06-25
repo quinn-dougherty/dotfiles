@@ -1,21 +1,17 @@
 Write a very detailed message for the current jj change. Include co-author attribution.
 
-Pick the right command based on where the edits live:
+Default to **`jj commit -m "<msg>"`** (jj 0.41+). It titles the working-copy
+change at @ *and* opens a fresh empty @ on top — i.e. `jj describe` followed by
+`jj new` in one step. This is the right call almost every time /jn runs after
+editing files: it seals the current edits into history under your message and
+leaves you a clean @ for the next batch.
 
-- **`jj describe -m "<msg>"`** — when @ already has the working-copy edits
-  and you want to title *that* change. This is the common case when /jn
-  is invoked after editing files. Re-running `jj describe -m` just
-  rewrites the message on @. Note: you should probably run `jj new` after `jj describe -m "<message>"` so that it actually takes the changes out of the current change tree and into the history. 
+Brief sidenotes (reach for these only when `jj commit` isn't what you want):
 
-- **`jj new -m "<msg>"`** — when @ is empty (e.g. right after a push,
-  when jj auto-creates a fresh empty @) and you want to start a *new*
-  named change before editing. `jj new -m` creates an empty child of @
-  with the given description; subsequent edits land in that new @.
+- **`jj describe -m "<msg>"`** — retitle @ *without* sealing it. Use when you
+  want to keep editing the same change, or to rewrite an existing message.
+- **`jj new -m "<msg>"`** — start a new empty, pre-titled change *before*
+  editing (e.g. @ is already empty after a push). Subsequent edits land in it.
 
-If you run `jj new -m` when @ already holds edits, the edits stay in
-the old (still-untitled) @ and the new message ends up on an empty
-child — usually not what you want. Check `jj status` first: if the
-working-copy shows modifications, use `jj describe`.
-
-Never use commands that open an editor (no bare `jj describe` or
-`jj new` without `-m`).
+Never use commands that open an editor (always pass `-m`; no bare `jj commit`,
+`jj describe`, or `jj new`).
