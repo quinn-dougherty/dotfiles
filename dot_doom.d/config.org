@@ -419,7 +419,7 @@ Each invocation opens a fresh session: *claude<project>[0]*, *claude<project>[1]
          (idx (qd/claude--next-index project-name))
          (buf-name (format "*claude<%s>[%d]*" project-name idx)))
     (vterm buf-name)
-    (vterm-send-string "claude --permission-mode acceptEdits\n")))
+    (vterm-send-string "claude --permission-mode auto\n")))
 (defun qd/claude-switch ()
   "Switch to an existing Claude Code buffer via completing-read."
   (interactive)
