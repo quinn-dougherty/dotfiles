@@ -35,7 +35,8 @@ if [[ -z $SSH_AUTH_SOCK ]]; then
 fi
 
 alias l='ls -al'
-alias c='/home/q/.local/bin/claude --permission-mode auto'          # overrides omarchy c=opencode
+alias c='/home/q/.local/bin/claude --permission-mode auto'          # forall org (Gmail SSO); overrides omarchy c=opencode
+alias c-isl='(set -a; source ~/.config/claude-isl/bedrock.env; set +a; exec /home/q/.local/bin/claude --permission-mode auto)'  # ISL Bedrock instance
 alias g='/usr/bin/gemini'                                           # overrides omarchy g=git
 alias ur='uv run'
 alias gsd='npx get-shit-done-cc'

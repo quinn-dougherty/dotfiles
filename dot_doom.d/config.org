@@ -400,40 +400,65 @@ Web launcher
               ("<right>" . 'copilot-accept-completion)
               ("C-<right>" . 'copilot-accept-completion-by-word)))
 
-(defun qd/claude--next-index (project-name)
-  "Return the lowest unused index for claude buffers in PROJECT-NAME."
+(defvar qd/claude-isl-env-file
+  (expand-file-name "~/.config/claude-isl/bedrock.env")
+  "Path to the env configuring the ISL Bedrock Claude instance.
+Deployed by chezmoi from an age-encrypted source
+(dot_config/claude-isl/encrypted_private_bedrock.env.age) and sourced at
+launch by `qd/claude-isl', so the Bedrock bearer token never lives in
+this config.")
+
+(defun qd/claude--next-index (flavor project-name)
+  "Return the lowest unused index for FLAVOR claude buffers in PROJECT-NAME."
   (let ((idx 0))
-    (while (get-buffer (format "*claude<%s>[%d]*" project-name idx))
+    (while (get-buffer (format "*%s<%s>[%d]*" flavor project-name idx))
       (setq idx (1+ idx)))
     idx))
 
-(defun qd/claude ()
-  "Open a new indexed Claude Code vterm session for the current project.
-Each invocation opens a fresh session: *claude<project>[0]*, *claude<project>[1]*, etc."
-  (interactive)
+(defun qd/claude--launch (flavor command)
+  "Open a new indexed Claude Code vterm session running shell COMMAND.
+FLAVOR labels the buffer (e.g. \"claude-forall\", \"claude-isl\").
+Each invocation opens a fresh session: *FLAVOR<project>[0]*, [1], etc."
   (let* ((project-name (or (and (project-current)
                                 (file-name-nondirectory
                                  (directory-file-name
                                   (project-root (project-current)))))
                             "global"))
-         (idx (qd/claude--next-index project-name))
-         (buf-name (format "*claude<%s>[%d]*" project-name idx)))
+         (idx (qd/claude--next-index flavor project-name))
+         (buf-name (format "*%s<%s>[%d]*" flavor project-name idx)))
     (vterm buf-name)
-    (vterm-send-string "claude --permission-mode auto\n")))
+    (vterm-send-string (concat command "\n"))))
+
+(defun qd/claude-forall ()
+  "Open a Claude Code session signed into the forall org (Gmail SSO, default)."
+  (interactive)
+  (qd/claude--launch "claude-forall" "claude --permission-mode auto"))
+
+(defun qd/claude-isl ()
+  "Open a Claude Code session on the ISL Bedrock instance.
+Sources `qd/claude-isl-env-file' for Bedrock credentials before launching."
+  (interactive)
+  (qd/claude--launch
+   "claude-isl"
+   (format "set -a && source %s && set +a && claude --permission-mode auto"
+           (shell-quote-argument qd/claude-isl-env-file))))
+
 (defun qd/claude-switch ()
   "Switch to an existing Claude Code buffer via completing-read."
   (interactive)
   (let ((bufs (cl-remove-if-not
-               (lambda (b) (string-match-p "^\\*claude<.*>\\[[0-9]+\\]\\*$" (buffer-name b)))
+               (lambda (b) (string-match-p "^\\*claude-[a-z]+<.*>\\[[0-9]+\\]\\*$" (buffer-name b)))
                (buffer-list))))
     (if (null bufs)
-        (message "No claude buffers open. Use SPC o c to start one.")
+        (message "No claude buffers open. Use SPC o c c/f/i to start one.")
       (switch-to-buffer
        (completing-read "Claude session: " (mapcar #'buffer-name bufs) nil t)))))
 
 (map! :leader
-      :desc "Claude" "o c" #'qd/claude
-      :desc "Claude switch" "o C" #'qd/claude-switch)
+      :desc "Claude (forall)"      "o c c" #'qd/claude-forall
+      :desc "Claude (forall)"      "o c f" #'qd/claude-forall
+      :desc "Claude (ISL/Bedrock)" "o c i" #'qd/claude-isl
+      :desc "Claude switch"        "o C"   #'qd/claude-switch)
 
 (after! vterm
   (map! :map vterm-mode-map
