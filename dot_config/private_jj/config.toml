@@ -1,0 +1,48 @@
+#:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+
+[user]
+name = "Quinn Dougherty"
+email = "quinn@for-all.dev"
+
+[ui]
+default-command = "log"
+
+[aliases]
+# Run lefthook's pre-push checks (only if this repo configures lefthook), then
+# `jj git push`. Extra args are forwarded, e.g. `jj pushcheck --bookmark foo`.
+# jj has no native git-hook support, so this approximates a pre-push hook.
+pushcheck = ["util", "exec", "--", "bash", "-c", '''
+set -eo pipefail
+cd "${JJ_WORKSPACE_ROOT:-.}"
+has_lefthook() {
+  for f in lefthook.yml lefthook.yaml lefthook.toml lefthook.json \
+           .lefthook.yml .lefthook.yaml .lefthook.toml .lefthook.json; do
+    [ -f "$f" ] && return 0
+  done
+  return 1
+}
+if command -v lefthook >/dev/null 2>&1 && has_lefthook; then
+  echo "pushcheck: running lefthook pre-push..." >&2
+  lefthook run pre-push
+fi
+exec jj git push "$@"
+''', "jj-pushcheck"]
+# Run lefthook's pre-commit checks (only if this repo configures lefthook), then
+# `jj commit`. Extra args are forwarded. jj has no native git-hook support, so
+# this approximates a pre-commit hook against the working-copy change.
+commitcheck = ["util", "exec", "--", "bash", "-c", '''
+set -eo pipefail
+cd "${JJ_WORKSPACE_ROOT:-.}"
+has_lefthook() {
+  for f in lefthook.yml lefthook.yaml lefthook.toml lefthook.json \
+           .lefthook.yml .lefthook.yaml .lefthook.toml .lefthook.json; do
+    [ -f "$f" ] && return 0
+  done
+  return 1
+}
+if command -v lefthook >/dev/null 2>&1 && has_lefthook; then
+  echo "commitcheck: running lefthook pre-commit..." >&2
+  lefthook run pre-commit
+fi
+exec jj commit "$@"
+''', "jj-commitcheck"]

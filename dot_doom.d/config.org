@@ -275,29 +275,61 @@ Web launcher
                         (start-process "firefox" nil "firefox" "--new-window" url)
                       (message "No URL found at point"))))))
 #+END_SRC
-* Majjit
+* Majutsu
 #+BEGIN_SRC elisp
-;; Majjit - Magit for Jujutsu
-(use-package! majjit
-  :commands (majjit-status majjit-dispatch majjit-log)
+;; Majutsu - Magit-style interface for Jujutsu (jj)
+(use-package! majutsu
+  :commands (majutsu majutsu-log majutsu-dispatch)
   :init
-  ;; Optional: Bind majjit-status to a key (similar to magit-status)
   (map! :leader
-        :desc "Majjit status" "j j" #'majjit-status)
+        :desc "Majutsu" "j j" #'majutsu)
   :config
-  ;; Set jj executable path if not in PATH
-  ;; (setq majjit-jj-executable "/path/to/jj")
-
-  ;; Customize log limit
-  (setq majjit-log-limit 256)
-
-  ;; Enable auto-refresh
-  (setq majjit-refresh-status-buffer t))
-
-;; Optional: Add project-specific keybindings
-;; (map! :map majjit-status-mode-map
-;;       :n "q" #'quit-window
-;;       :n "g" #'majjit-status-refresh)
+  ;; Open majutsu (log/status) in the current window instead of splitting to
+  ;; another one; only diffs/process buffers pop elsewhere.
+  (setq majutsu-display-buffer-function
+        #'majutsu-display-buffer-same-window-except-diff-v1)
+  ;; Start commit/describe message buffers in evil insert state (like magit's
+  ;; git-commit-setup-hook does).
+  (when (modulep! :editor evil)
+    (add-hook 'majutsu-jjdescription-setup-hook #'evil-insert-state)
+    ;; Bind `p' to push-with-checks in the log buffer. If the repo configures
+    ;; lefthook, run the `jj pushcheck' alias (lefthook pre-push, then push);
+    ;; otherwise fall back to majutsu's normal push command.
+    (defun qd/majutsu--lefthook-configured-p ()
+      "Non-nil if the current majutsu repo has a lefthook config file."
+      (let ((root (or (majutsu--toplevel-safe) default-directory)))
+        (seq-some (lambda (f) (file-exists-p (expand-file-name f root)))
+                  '("lefthook.yml" "lefthook.yaml" "lefthook.toml" "lefthook.json"
+                    ".lefthook.yml" ".lefthook.yaml" ".lefthook.toml" ".lefthook.json"))))
+    (defun qd/majutsu-pushcheck ()
+      "Push from majutsu, running lefthook's pre-push checks first when configured.
+With a lefthook config present, run the `jj pushcheck' alias (lefthook
+pre-push, then `jj git push'); otherwise fall back to `majutsu-git-push'."
+      (interactive)
+      (if (qd/majutsu--lefthook-configured-p)
+          (majutsu-run-jj-async "pushcheck")
+        (call-interactively #'majutsu-git-push)))
+    (defun qd/majutsu-commitcheck ()
+      "Commit from majutsu, running lefthook's pre-commit checks first when configured.
+With a lefthook config present, run the `jj commitcheck' alias (lefthook
+pre-commit, then `jj commit'); otherwise fall back to `majutsu-commit'.
+If the checks fail, the alias exits non-zero and the commit editor never
+opens.  `c' (describe) is intentionally left untouched."
+      (interactive)
+      (if (qd/majutsu--lefthook-configured-p)
+          (majutsu-run-jj-with-editor "commitcheck")
+        (call-interactively #'majutsu-commit)))
+    (map! :map majutsu-log-mode-map
+          :nvm "p" #'qd/majutsu-pushcheck
+          :nvm "C" #'qd/majutsu-commitcheck))
+  ;; Make the majutsu-log buffer show up in the workspace buffer selector
+  ;; (SPC b b) instead of only the global one (SPC b B), by adding it to the
+  ;; current persp/workspace when it's created.
+  (when (modulep! :ui workspaces)
+    (add-hook 'majutsu-log-mode-hook
+              (lambda ()
+                (when (bound-and-true-p persp-mode)
+                  (persp-add-buffer (current-buffer)))))))
 #+END_SRC
 
 #+RESULTS:
@@ -394,8 +426,19 @@ Web launcher
  (map! :leader :desc "Language model send"
        "l" #'gptel-send)
  )
+(defvar qd/copilot-disabled-dirs
+  (list (expand-file-name "~/Documents/Work/Safeguarded/isl"))
+  "Directories under which `copilot-mode' should not auto-enable.")
+
+(defun qd/copilot-maybe-enable ()
+  "Enable `copilot-mode' unless the buffer lives under `qd/copilot-disabled-dirs'."
+  (let ((dir (expand-file-name default-directory)))
+    (unless (cl-some (lambda (d) (string-prefix-p (file-name-as-directory d) dir))
+                     qd/copilot-disabled-dirs)
+      (copilot-mode 1))))
+
 (use-package! copilot
-  :hook (prog-mode . copilot-mode)
+  :hook (prog-mode . qd/copilot-maybe-enable)
   :bind (:map copilot-completion-map
               ("<right>" . 'copilot-accept-completion)
               ("C-<right>" . 'copilot-accept-completion-by-word)))
