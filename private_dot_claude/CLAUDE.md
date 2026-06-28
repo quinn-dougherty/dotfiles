@@ -13,6 +13,8 @@ Incrementally adopting jj (jujutsu) v0.34.0 - check for `.jj/` vs `.git/` direct
 
 # Delegating low-level work to Antigravity (`agy`)
 
+**IMPORTANT: Only do delegation as instructed in this block if `isl` is NOT in `$CWD`!!!**
+
 Operating model: **you orchestrate, Antigravity executes.** `agy` is a headless
 coding agent (Gemini 3) on PATH. For concrete, self-contained implementation
 work, delegate to the `antigravity` subagent rather than doing it inline — it
