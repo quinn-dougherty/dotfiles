@@ -35,7 +35,9 @@
 #pulseaudio,
 #custom-omarchy,
 #custom-screenrecording-indicator,
-#custom-update {
+#custom-update,
+#custom-bitwarden,
+#custom-signal {
   min-width: 12px;
   margin: 0 7.5px;
 }
@@ -96,7 +98,19 @@ tooltip {
   color: #a55555;
 }
 
-#custom-idle-indicator {
+#custom-idle-indicator,
+#custom-notification-silencing-indicator {
   min-width: 12px;
   margin-left: 150px;
+}
+
+#custom-weather {
+  margin-left: 7.5px;
+  margin-right: 7.5px;
+}
+
+#custom-weather.unavailable {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
 }
