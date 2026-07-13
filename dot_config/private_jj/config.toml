@@ -6,6 +6,16 @@ email = "quinn@for-all.dev"
 
 [ui]
 default-command = "log"
+show-cryptographic-signatures = true
+
+[signing]
+sign-all = true
+backend = "ssh"
+key = "~/.ssh/id_ed25519"
+behavior = "own"
+
+[signing.backends.ssh]
+allowed-signers = "~/.ssh/allowed_signers"
 
 [aliases]
 # Run lefthook's pre-push checks (only if this repo configures lefthook), then

@@ -10,3 +10,10 @@
 [user]
 	name = Quinn Dougherty
 	email = quinn@for-all.dev
+	signingKey = /home/q/.ssh/id_ed25519.pub
+[gpg]
+	format = ssh
+[commit]
+	gpgSign = true
+[gpg "ssh"]
+	allowedSignersFile = /home/q/.ssh/allowed_signers
