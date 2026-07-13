@@ -1,6 +1,6 @@
 # Version Control
 
-Incrementally adopting jj (jujutsu) v0.34.0 - check for `.jj/` vs `.git/` directory
+Incrementally adopting jj (jujutsu) - check for `.jj/` vs `.git/` directory
 
 ## jj Command Rules
 - NEVER use jj commands that open an editor interactively

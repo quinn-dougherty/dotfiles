@@ -321,7 +321,8 @@ opens.  `c' (describe) is intentionally left untouched."
         (call-interactively #'majutsu-commit)))
     (map! :map majutsu-log-mode-map
           :nvm "p" #'qd/majutsu-pushcheck
-          :nvm "C" #'qd/majutsu-commitcheck))
+          :nvm "C" #'qd/majutsu-commitcheck
+          :nvm "f" #'majutsu-git-fetch))
   ;; Make the majutsu-log buffer show up in the workspace buffer selector
   ;; (SPC b b) instead of only the global one (SPC b B), by adding it to the
   ;; current persp/workspace when it's created.
@@ -427,7 +428,7 @@ opens.  `c' (describe) is intentionally left untouched."
        "l" #'gptel-send)
  )
 (defvar qd/copilot-disabled-dirs
-  (list (expand-file-name "~/Documents/Work/Safeguarded/isl"))
+  (list (expand-file-name "~/Documents/Work/safeguarded/isl"))
   "Directories under which `copilot-mode' should not auto-enable.")
 
 (defun qd/copilot-maybe-enable ()
