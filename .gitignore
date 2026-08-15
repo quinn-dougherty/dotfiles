@@ -1,0 +1,4 @@
+**/*.bak.*
+.claude/settings.json
+.doom.d/config.el
+dot_doom.d/config.el

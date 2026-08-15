@@ -7,10 +7,11 @@ $browser = xdg-open https:
 {{ end -}}
 
 {{ if .omarchy.enabled -}}
-bindd = SUPER ALT, RETURN, Tmux, exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" tmux new
-bindd = SUPER, RETURN, Terminal, exec, $terminal --dir="$(omarchy-cmd-terminal-cwd)"
+bindd = SUPER, RETURN, Tmux, exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" tmux new
+bindd = SUPER ALT, RETURN, Terminal, exec, $terminal --dir="$(omarchy-cmd-terminal-cwd)"
 {{ else -}}
-bindd = SUPER, RETURN, Terminal, exec, $terminal
+bindd = SUPER, RETURN, Tmux, exec, $terminal tmux new
+bindd = SUPER ALT, RETURN, Terminal, exec, $terminal
 {{ end -}}
 bindd = SUPER SHIFT, F, File manager, exec, uwsm-app -- nautilus --new-window
 {{ if .omarchy.enabled -}}
@@ -94,3 +95,10 @@ bindd = SUPER ALT, Z, Toggle idle lock, exec, omarchy-toggle-idle
 
 # Notification controls
 bindd = SUPER ALT, N, Click top notification, exec, makoctl dismiss
+
+# Voice dictation - tap to start recording, tap again to stop and transcribe
+{{ if .omarchy.enabled -}}
+# Overrides Omarchy default (was: Theme background menu)
+unbind = SUPER CTRL, SPACE
+{{ end -}}
+bindd = SUPER CTRL, SPACE, Toggle dictation (talkat), exec, talkat listen

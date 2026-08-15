@@ -71,13 +71,220 @@ numbers are disabled. For relative line numbers, set this to `relative'.
 : other-window
 
 * Shell things
-#+BEGIN_SRC elisp
 
-(setq vterm-eval-cmds '(("find-file" find-file)
-                        ("message" message)
-                        ("vterm-clear-scrollback" vterm-clear-scrollback)
-                        ("dired" dired)
-                        ("ediff-files" ediff-files)))
+Terminal emulation is [[https://github.com/dakra/ghostel][ghostel]] (libghostty-vt), not vterm — the =:term vterm=
+module is disabled in =init.el=. Unlike vterm there is no compile step: the
+native module is a prebuilt binary fetched from GitHub releases on first use.
+It lives under =doom-data-dir= rather than the straight build tree so that
+=doom sync= can't delete it out from under a running Emacs.
+
+#+BEGIN_SRC elisp
+(use-package! ghostel
+  :when (bound-and-true-p module-file-suffix) ; requires dynamic-modules support
+  :commands (ghostel ghostel-project ghostel-mode)
+  :hook ((ghostel-mode . mode-line-invisible-mode) ; modeline serves no purpose here
+         (ghostel-mode . doom-disable-line-numbers-h))
+  :init
+  ;; Keep the .so outside straight's build tree, and grab it without prompting.
+  (setq ghostel-module-directory (concat doom-data-dir "ghostel/")
+        ghostel-module-auto-install 'download)
+  :config
+  ;; Only the `+ghostel/toggle' terminal is a popup; `+ghostel/here' terminals
+  ;; and bare `M-x ghostel' buffers are ordinary windows. `:ttl nil' is what
+  ;; makes the popup survive being toggled shut: with Doom's `:ttl 0' (which
+  ;; the `:term vterm' rule uses, for buffers that aren't the persistent
+  ;; popup) `+popup--delete-window' kills the process and the buffer the
+  ;; moment the window goes away, so every toggle threw the shell out.
+  (set-popup-rule! "^\\*ghostel-popup" :size 0.25 :vslot -4 :select t :quit nil :ttl nil)
+
+  ;; Functions the shell may call back into Emacs with via `ghostel_cmd'.
+  (setq ghostel-eval-cmds '(("find-file" find-file)
+                            ("find-file-other-window" find-file-other-window)
+                            ("message" message)
+                            ("dired" dired)
+                            ("ediff-files" ediff-files)
+                            ("ghostel-clear-scrollback" ghostel-clear-scrollback)))
+
+  ;; vterm muscle memory: bare C-q sends the next key raw (ghostel's own
+  ;; binding is C-c C-q, which stays available).
+  (map! :map ghostel-mode-map "C-q" #'ghostel-send-next-key)
+
+  (setq-hook! 'ghostel-mode-hook
+    ;; Don't prompt about dying processes when killing a terminal
+    confirm-kill-processes nil
+    ;; Prevent premature horizontal scrolling
+    hscroll-margin 0))
+
+;; Evil integration. The upstream default `evil-ghostel-escape' is `auto',
+;; which routes insert-state ESC to the app whenever it's on the alt screen
+;; (Claude Code, vim, less) and leaves C-c <escape> as the drop-to-normal
+;; escape hatch. Swap the two: bare ESC is always plain evil escape, and
+;; C-c <escape> is what sends a real ESC keypress to the app. C-c C-r
+;; (`evil-ghostel-toggle-send-escape') still flips the routing per buffer.
+(use-package! evil-ghostel
+  :when (modulep! :editor evil)
+  :after ghostel
+  :hook (ghostel-mode . evil-ghostel-mode)
+  :init
+  ;; Read into `evil-ghostel--escape-mode' when the minor mode turns on.
+  (setq evil-ghostel-escape 'evil)
+  :config
+  (defun +ghostel/send-escape ()
+    "Send an ESC keypress to the terminal application."
+    (interactive)
+    (ghostel-send-key "escape"))
+  ;; Upstream binds this to `evil-force-normal-state'; that's bare ESC now.
+  (define-key evil-ghostel-mode-map (kbd "C-c <escape>") #'+ghostel/send-escape)
+
+  ;; Paste on the alt screen. `evil-ghostel-paste-after' only bracketed-pastes
+  ;; when `evil-ghostel--prompt-active-p', which excludes the alt screen — it
+  ;; wants a readline prompt it can steer the cursor within. Under an
+  ;; alt-screen TUI (Claude Code, vim, less) it falls back to `evil-paste-after',
+  ;; which tries to insert into the renderer-owned buffer and dies with
+  ;; "Buffer is read-only". The TUI owns its own line editor, so just hand it
+  ;; the text via bracketed paste and let it place the cursor.
+  (defun +ghostel/evil-paste (&optional count register yank-handler)
+    "Paste COUNT times from REGISTER, alt-screen TUIs included."
+    (interactive "P")
+    (if (and (ghostel-alt-screen-p)
+             (eq ghostel--input-mode 'semi-char)
+             ghostel--process (process-live-p ghostel--process))
+        (when-let* ((text (if register
+                              (evil-get-register register)
+                            (current-kill 0))))
+          (ghostel--on-user-input)
+          (dotimes (_ (prefix-numeric-value count))
+            (ghostel--paste-text text)))
+      (evil-ghostel-paste-after count register yank-handler)))
+
+  ;; Redefining the remap in the same map overrides upstream's entry. Before/
+  ;; after is meaningless without a prompt to sit inside, so P shares it.
+  (evil-define-key* '(normal visual) evil-ghostel-mode-map
+                    [remap evil-paste-after]  #'+ghostel/evil-paste
+                    [remap evil-paste-before] #'+ghostel/evil-paste)
+
+  ;; Insert-state C-y is in `evil-ghostel--ctrl-passthrough-keys', so it sends
+  ;; a literal ^Y for readline's yank — useless under a TUI that has no kill
+  ;; ring of its own. Point it at ghostel's own yank instead, so C-y pastes
+  ;; from the Emacs kill ring (and thus the system clipboard) in insert state
+  ;; the same way `p' does in normal state.
+  (evil-define-key* 'insert evil-ghostel-mode-map (kbd "C-y") #'ghostel-yank)
+
+  ;; TAB passthrough. Ghostel binds `<tab>' in its own input-mode map, which
+  ;; is the buffer's *local* map — and Doom binds `<tab>' in the global evil
+  ;; insert state map (`map! :i [tab]', a menu-item whose filter only defers
+  ;; to `overriding-terminal-local-map', not to the local map). State maps
+  ;; outrank local maps, so with company or yasnippet live the GUI <tab> key
+  ;; went to `company-indent-or-complete-common' and never reached the PTY:
+  ;; shell completion looked dead. (Bare ASCII TAB/C-i was unaffected, which
+  ;; is why TAB still worked in a terminal frame.) `evil-ghostel-mode-map' is
+  ;; a minor-mode map, so binding here wins over the global state map.
+  (evil-define-key* 'insert evil-ghostel-mode-map
+                    [tab]     #'ghostel--send-event
+                    [backtab] #'ghostel--send-event))
+
+;; Doom exempts `vterm-mode' from `global-company-mode' for the same reason —
+;; a completion UI has nothing to offer inside a terminal, and its keybinds
+;; fight the shell's own. Appended, so the `not' form keeps its meaning.
+(after! company
+  (add-to-list 'company-global-modes 'ghostel-mode t))
+
+;; The `:term vterm' module used to supply these under SPC o.
+(map! :leader
+      :desc "Toggle terminal popup" "o t" #'+ghostel/toggle
+      :desc "Open terminal here"    "o T" #'+ghostel/here)
+
+;; Ghostel is autoloaded, so `ghostel-buffer-name' is not yet special when this
+;; file is evaluated. Without this declaration the `let*'s below would bind it
+;; lexically and `ghostel' would never see the name.
+(defvar ghostel-buffer-name)
+
+(defun +ghostel--popup-name ()
+  "Buffer name for this workspace's toggled terminal popup.
+One popup per perspective, like Doom's own `+vterm/toggle'."
+  (format "*ghostel-popup:%s*"
+          (if (bound-and-true-p persp-mode)
+              (safe-persp-name (get-current-persp))
+            "main")))
+
+(defun +ghostel--next-name (project)
+  "Return the first unused indexed terminal name for PROJECT.
+Matched against each buffer's `ghostel--buffer-identity' — the name
+recorded at creation — rather than its current name, because
+`ghostel-buffer-name-function' renames terminals after their title."
+  (let ((idx 0) name)
+    (while (ghostel--find-buffer-by-identity
+            (setq name (format "*ghostel<%s>[%d]*" project idx)))
+      (setq idx (1+ idx)))
+    name))
+
+(defun +ghostel--project-name (root)
+  "Return a short label for the project at ROOT."
+  (if (doom-project-root)
+      (file-name-nondirectory (directory-file-name root))
+    "global"))
+
+(defun +ghostel/toggle (arg)
+  "Toggle this workspace's ghostel popup at project root.
+With prefix ARG, open in `default-directory' instead.
+
+The popup is a single long-lived terminal per perspective, distinct
+from the indexed ones `+ghostel/here' opens: closing it only hides it."
+  (interactive "P")
+  (require 'ghostel)
+  (let* ((project-root (or (doom-project-root) default-directory))
+         (default-directory (if arg default-directory project-root))
+         (ghostel-buffer-name (+ghostel--popup-name))
+         (existing (ghostel--find-buffer-by-identity ghostel-buffer-name)))
+    (setenv "PROOT" project-root)
+    (if-let* ((win (and existing (get-buffer-window existing))))
+        (delete-window win)
+      ;; `ghostel' reuses a live terminal by its recorded identity (which
+      ;; survives renames), so this both creates and revives.
+      (let ((buf (ghostel)))
+        ;; The popup rule matches on the buffer name, so keep ghostel's
+        ;; title-tracking rename away from it — otherwise the terminal
+        ;; renames itself out of the rule and later toggles open a normal
+        ;; window instead of the popup.
+        (with-current-buffer buf (setq-local ghostel-buffer-name-function nil))
+        buf))))
+
+(defun +ghostel--claim-buffer (buf)
+  "Mark BUF real and file it under the current perspective.
+Doom's `+workspaces-add-current-buffer-h' skips anything
+`doom-unreal-buffer-p' rejects, and `doom-special-buffer-p' rejects every
+earmuffed name — so a `*ghostel*' buffer never joins the workspace and only
+turns up under \\[switch-to-buffer] (SPC b B), not the workspace-scoped
+\\[persp-switch-to-buffer] (SPC b b). Marking it real is what Doom's own
+`+term/here' does; the explicit `persp-add-buffer' covers the fact that
+`ghostel' already displayed the buffer (and so already ran the hook that
+would have added it) before we got here.
+
+Deliberately not applied to `+ghostel/toggle': popups are transient by
+design and Doom keeps them out of the workspace buffer list."
+  (with-current-buffer buf
+    (doom-mark-buffer-as-real-h))
+  (when (and (bound-and-true-p persp-mode) (get-current-persp))
+    (persp-add-buffer buf (get-current-persp) nil nil))
+  buf)
+
+(defun +ghostel/here (arg)
+  "Open a new ghostel terminal in the current window at project root.
+With prefix ARG, open in `default-directory' instead.
+
+Each invocation opens a fresh terminal — *ghostel<project>[0]*, [1], …
+— rather than revisiting the one terminal `ghostel-buffer-name' names.
+Ghostel renames these after their title as soon as the shell reports
+one; the index only has to be unique at creation time."
+  (interactive "P")
+  (require 'ghostel)
+  (let* ((project-root (or (doom-project-root) default-directory))
+         (default-directory (if arg default-directory project-root))
+         (ghostel-buffer-name
+          (+ghostel--next-name (+ghostel--project-name project-root))))
+    (setenv "PROOT" project-root)
+    (let (display-buffer-alist)
+      (+ghostel--claim-buffer (ghostel)))))
 ; (custom-set-variables explicit-shell-file-name "/run/current-system/sw/bin/fish")
 #+END_SRC
 * Defaults for startup
@@ -459,24 +666,49 @@ this config.")
       (setq idx (1+ idx)))
     idx))
 
+;; `ghostel-buffer-name' is declared special in "Shell things" above, so the
+;; `let*' below dynamically binds it where `ghostel' can see it.
 (defun qd/claude--launch (flavor command)
-  "Open a new indexed Claude Code vterm session running shell COMMAND.
+  "Open a new indexed Claude Code ghostel session running shell COMMAND.
 FLAVOR labels the buffer (e.g. \"claude-forall\", \"claude-isl\").
 Each invocation opens a fresh session: *FLAVOR<project>[0]*, [1], etc."
+  (require 'ghostel)
   (let* ((project-name (or (and (project-current)
                                 (file-name-nondirectory
                                  (directory-file-name
                                   (project-root (project-current)))))
                             "global"))
          (idx (qd/claude--next-index flavor project-name))
-         (buf-name (format "*%s<%s>[%d]*" flavor project-name idx)))
-    (vterm buf-name)
-    (vterm-send-string (concat command "\n"))))
+         (buf-name (format "*%s<%s>[%d]*" flavor project-name idx))
+         ;; `ghostel' takes no buffer-name argument; it names the buffer after
+         ;; `ghostel-buffer-name', so bind that instead of passing one.
+         (ghostel-buffer-name buf-name)
+         (buf (ghostel)))
+    (with-current-buffer buf
+      ;; Ghostel renames buffers from the terminal title by default, which
+      ;; would clobber the indexed name `qd/claude-switch' matches on.
+      (setq-local ghostel-buffer-name-function nil)
+      (+ghostel--claim-buffer buf)
+      (ghostel-send-string (concat command "\n")))
+    buf))
 
 (defun qd/claude-forall ()
-  "Open a Claude Code session signed into the forall org (Gmail SSO, default)."
+  "Open a Claude Code session signed into the forall org (Gmail SSO, default).
+
+`CLAUDE_CODE_FORCE_SESSION_PERSISTENCE' overrides Claude Code's
+nested-session heuristic, which otherwise stops writing the transcript
+whenever `CLAUDE_CODE_CHILD_SESSION' is present in the environment (the
+marker Claude Code sets in every process it spawns, so that a `claude'
+run from inside another `claude' doesn't pollute the parent's history).
+Ghostel terminals inherit Emacs' environment wholesale, so if this Emacs
+was ever started from a shell under a Claude session every launcher here
+inherits the marker for the life of the process — and every session
+silently loses its transcript and its ability to `--resume', announced
+only by a one-line banner.  ISL sessions are deliberately left alone."
   (interactive)
-  (qd/claude--launch "claude-forall" "claude --permission-mode auto"))
+  (qd/claude--launch
+   "claude-forall"
+   "CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 claude --permission-mode auto"))
 
 (defun qd/claude-isl ()
   "Open a Claude Code session on the ISL Bedrock instance.
@@ -484,7 +716,7 @@ Sources `qd/claude-isl-env-file' for Bedrock credentials before launching."
   (interactive)
   (qd/claude--launch
    "claude-isl"
-   (format "set -a && source %s && set +a && claude --permission-mode auto"
+   (format "set -a && source %s && set +a && claude --dangerously-skip-permissions"
            (shell-quote-argument qd/claude-isl-env-file))))
 
 (defun qd/claude-switch ()
@@ -504,9 +736,9 @@ Sources `qd/claude-isl-env-file' for Bedrock credentials before launching."
       :desc "Claude (ISL/Bedrock)" "o c i" #'qd/claude-isl
       :desc "Claude switch"        "o C"   #'qd/claude-switch)
 
-(after! vterm
-  (map! :map vterm-mode-map
-        :desc "Send ESC to terminal" "C-c <escape>" #'vterm-send-escape))
+;; ESC keys in these buffers follow the swap set up in "Shell things": bare
+;; ESC drops to evil normal state, and C-c <escape> is what interrupts Claude
+;; Code. C-c C-r flips the routing per buffer if the swap is ever in the way.
 #+END_SRC
 * completion and lsp
 #+BEGIN_SRC elisp

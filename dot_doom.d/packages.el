@@ -108,6 +108,12 @@
 ;;; Code:
 (package! multi-term)
 
+;; Terminal: ghostel (libghostty-vt) replaces the `:term vterm' module.
+;; No build step — the native module is a prebuilt binary that auto-downloads
+;; on first use (see `ghostel-module-auto-install').
+(package! ghostel)
+(package! evil-ghostel)
+
 (package! all-the-icons)
 (package! pdf-tools)
 
