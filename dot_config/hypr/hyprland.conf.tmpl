@@ -21,9 +21,11 @@ source = ~/.config/hypr/bindings.conf
 source = ~/.config/hypr/envs.conf
 source = ~/.config/hypr/looknfeel.conf
 source = ~/.config/hypr/autostart.conf
+# App -> workspace pinning. Sourced after Omarchy's windows.conf (above) so
+# these rules can override the defaults.
+source = ~/.config/hypr/workspaces.conf
 
 # Add any other personal Hyprland configuration below
-# windowrule = workspace 5, class:qemu
 
 # Toggle config flags dynamically
 source = ~/.local/state/omarchy/toggles/hypr/*.conf

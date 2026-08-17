@@ -17,3 +17,9 @@
 	gpgSign = true
 [gpg "ssh"]
 	allowedSignersFile = /home/q/.ssh/allowed_signers
+# Machine-local settings that shouldn't live in a public dotfiles repo --
+# internal hosts, credential helpers written by tools like `tea login`.
+# Unmanaged by chezmoi (see .chezmoiignore) so `chezmoi apply` can't clobber it.
+# Relative to this file's directory; git ignores the include if it's absent.
+[include]
+	path = config.local

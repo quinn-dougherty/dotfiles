@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Software replug for the Blue Yeti, for when it comes up dead after a boot
+# with the mic already plugged in.
+#
+# The race: the Yeti enumerates before snd-usb-audio is registered, so only its
+# HID interface gets a driver. The module loads ~2s later and back-probes the
+# audio interfaces -- enough to create the ALSA card, not enough to make it
+# stream. The card looks entirely healthy (state: RUNNING, Mute: no, sensible
+# volume) while hw_ptr sits at 0 forever and every capture client blocks
+# waiting for a frame that never arrives. `talkat listen` just hangs.
+#
+# Cycling `authorized` re-enumerates the device with snd-usb-audio already
+# present, which is what physically unplugging and replugging it does.
+set -uo pipefail
+
+VENDOR=046d   # Logitech (Blue)
+PRODUCT=0ab7  # Yeti
+
+die() { echo "fix-mic: $*" >&2; exit 1; }
+
+find_device() {
+  local d
+  for d in /sys/bus/usb/devices/*/; do
+    [[ -f "$d/idVendor" && -f "$d/idProduct" ]] || continue
+    [[ "$(<"$d/idVendor")" == "$VENDOR" && "$(<"$d/idProduct")" == "$PRODUCT" ]] || continue
+    printf '%s' "${d%/}"
+    return 0
+  done
+  return 1
+}
+
+# Ask the source for 2s of audio. A working mic returns a file; a wedged one
+# never delivers a frame, so ffmpeg's -t never elapses and it hangs until the
+# timeout kills it. That distinction is the whole test -- a *silent* mic still
+# produces a file, so this reports wiring, not loudness.
+capture_works() {
+  local src="$1" tmp rc
+  command -v ffmpeg >/dev/null || return 2
+  tmp=$(mktemp --suffix=.wav) || return 2
+  timeout -s KILL 6 ffmpeg -hide_banner -loglevel quiet \
+    -f pulse -i "$src" -t 2 -ac 1 -ar 16000 -y "$tmp" </dev/null 2>/dev/null
+  rc=$?
+  [[ $rc -eq 0 && -s "$tmp" ]]; rc=$?
+  rm -f "$tmp"
+  return $rc
+}
+
+yeti_source() {
+  pactl list sources short 2>/dev/null | awk '/alsa_input.*Blue_Microphones/ {print $2; exit}'
+}
+
+dev=$(find_device) || die "no Blue Yeti on the USB bus (looked for $VENDOR:$PRODUCT)"
+src=$(yeti_source)
+
+if [[ "${1:-}" == "-c" || "${1:-}" == "--check" ]]; then
+  [[ -n "$src" ]] || die "Yeti is on the bus at ${dev##*/} but has no PipeWire source"
+  case "$(capture_works "$src"; echo $?)" in
+    0) echo "fix-mic: $src is live" ;;
+    2) echo "fix-mic: ffmpeg not installed, cannot test capture" >&2; exit 2 ;;
+    *) echo "fix-mic: $src is wedged -- run 'fix-mic' to reset it"; exit 1 ;;
+  esac
+  exit 0
+fi
+
+was_default=0
+[[ -n "$src" && "$(pactl get-default-source 2>/dev/null)" == "$src" ]] && was_default=1
+
+echo "fix-mic: re-enumerating Yeti at ${dev##*/} (needs root)"
+echo 0 | sudo tee "$dev/authorized" >/dev/null || die "could not deauthorize $dev"
+sleep 1
+echo 1 | sudo tee "$dev/authorized" >/dev/null || die "could not reauthorize $dev"
+
+# Re-enumeration is asynchronous: the USB device, the ALSA card, and the
+# PipeWire node each appear on their own schedule. Wait for the last of them.
+for _ in {1..20}; do
+  src=$(yeti_source)
+  [[ -n "$src" ]] && break
+  sleep 0.5
+done
+[[ -n "$src" ]] || die "Yeti never came back as a PipeWire source"
+
+# The ALSA card index can change across re-enumeration, so PipeWire may not
+# restore it as default on its own.
+if [[ $was_default -eq 1 ]]; then
+  pactl set-default-source "$src" 2>/dev/null || true
+fi
+
+if capture_works "$src"; then
+  echo "fix-mic: $src is live"
+else
+  case $? in
+    2) echo "fix-mic: reset done; install ffmpeg to verify capture" >&2 ;;
+    *) die "reset done but $src still isn't delivering audio -- try a physical replug" ;;
+  esac
+fi

@@ -1,3 +1,4 @@
 **/*.bak.*
 .claude/settings.json
 .doom.d/config.el
+.config/git/config.local
