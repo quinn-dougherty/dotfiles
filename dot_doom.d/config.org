@@ -207,13 +207,31 @@ One popup per perspective, like Doom's own `+vterm/toggle'."
               (safe-persp-name (get-current-persp))
             "main")))
 
+(defun +ghostel--find-by-name (name)
+  "Return the live ghostel terminal whose slot identity is NAME, or nil.
+
+Ghostel keys terminal reuse on a structured `ghostel-identity' alist —
+`((kind . term) (name . NAME) (instance . N))' — not on the buffer name,
+which `ghostel-buffer-name-function' rewrites as soon as the shell
+reports a title.  So the lookup has to go through the identity, and NAME
+here is the `ghostel-buffer-name' in effect at creation, not whatever the
+buffer is called now.
+
+Matching `kind' and `name' as a subset via `ghostel-identity-match-p'
+deliberately leaves `instance' unconstrained: every wrapper below
+let-binds a name unique enough to get its own slot, so instance is always
+1 in practice, and ignoring it means a terminal is still found if ghostel
+ever hands one of them a higher slot."
+  (seq-find (lambda (buf)
+              (ghostel-identity-match-p
+               `((kind . term) (name . ,name))
+               (buffer-local-value 'ghostel-identity buf)))
+            (ghostel-buffer-list)))
+
 (defun +ghostel--next-name (project)
-  "Return the first unused indexed terminal name for PROJECT.
-Matched against each buffer's `ghostel--buffer-identity' — the name
-recorded at creation — rather than its current name, because
-`ghostel-buffer-name-function' renames terminals after their title."
+  "Return the first unused indexed terminal name for PROJECT."
   (let ((idx 0) name)
-    (while (ghostel--find-buffer-by-identity
+    (while (+ghostel--find-by-name
             (setq name (format "*ghostel<%s>[%d]*" project idx)))
       (setq idx (1+ idx)))
     name))
@@ -235,7 +253,7 @@ from the indexed ones `+ghostel/here' opens: closing it only hides it."
   (let* ((project-root (or (doom-project-root) default-directory))
          (default-directory (if arg default-directory project-root))
          (ghostel-buffer-name (+ghostel--popup-name))
-         (existing (ghostel--find-buffer-by-identity ghostel-buffer-name)))
+         (existing (+ghostel--find-by-name ghostel-buffer-name)))
     (setenv "PROOT" project-root)
     (if-let* ((win (and existing (get-buffer-window existing))))
         (delete-window win)
