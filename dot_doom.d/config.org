@@ -653,10 +653,10 @@ opens.  `c' (describe) is intentionally left untouched."
 
 (defvar qd/claude-isl-env-file
   (expand-file-name "~/.config/claude-isl/bedrock.env")
-  "Path to the env configuring the ISL Bedrock Claude instance.
+  "Path to the env configuring the ISL Mantle Claude instance.
 Deployed by chezmoi from an age-encrypted source
 (dot_config/claude-isl/encrypted_private_bedrock.env.age) and sourced at
-launch by `qd/claude-isl', so the Bedrock bearer token never lives in
+launch by `qd/claude-isl', so the bearer token never lives in
 this config.")
 
 (defun qd/claude--next-index (flavor project-name)
@@ -711,8 +711,8 @@ only by a one-line banner.  ISL sessions are deliberately left alone."
    "CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 claude --permission-mode auto"))
 
 (defun qd/claude-isl ()
-  "Open a Claude Code session on the ISL Bedrock instance.
-Sources `qd/claude-isl-env-file' for Bedrock credentials before launching."
+  "Open a Claude Code session on the ISL Mantle instance.
+Sources `qd/claude-isl-env-file' for Mantle credentials before launching."
   (interactive)
   (qd/claude--launch
    "claude-isl"
@@ -733,7 +733,7 @@ Sources `qd/claude-isl-env-file' for Bedrock credentials before launching."
 (map! :leader
       :desc "Claude (forall)"      "o c c" #'qd/claude-forall
       :desc "Claude (forall)"      "o c f" #'qd/claude-forall
-      :desc "Claude (ISL/Bedrock)" "o c i" #'qd/claude-isl
+      :desc "Claude (ISL/Mantle)"  "o c i" #'qd/claude-isl
       :desc "Claude switch"        "o C"   #'qd/claude-switch)
 
 ;; ESC keys in these buffers follow the swap set up in "Shell things": bare

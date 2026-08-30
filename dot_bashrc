@@ -38,7 +38,7 @@ alias l='ls -al'
 # FORCE_SESSION_PERSISTENCE overrides the inherited-CLAUDE_CODE_CHILD_SESSION check, so
 # transcripts still save (and no warning banner) when launched from inside another claude.
 alias c='CLAUDE_CODE_FORCE_SESSION_PERSISTENCE=1 /home/q/.local/bin/claude --permission-mode auto'  # forall org (Gmail SSO); overrides omarchy c=opencode
-alias c-isl='(set -a; source ~/.config/claude-isl/bedrock.env; set +a; exec /home/q/.local/bin/claude --dangerously-skip-permissions)'  # ISL Bedrock instance; matches qd/claude-isl in config.org
+alias c-isl='(set -a; source ~/.config/claude-isl/bedrock.env; set +a; exec /home/q/.local/bin/claude --dangerously-skip-permissions)'  # ISL Mantle instance; matches qd/claude-isl in config.org
 alias g='/usr/bin/gemini'                                           # overrides omarchy g=git
 alias ur='uv run'
 alias gsd='npx get-shit-done-cc'
